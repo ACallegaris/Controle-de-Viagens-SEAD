@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -20,8 +19,8 @@
 
   <button id="novaViagemBtn">+ Nova Viagem</button>
   <div id="formNovaViagem" style="display:none; margin-top: 10px;">
-    <input type="text" placeholder="DATA DE IDA" id="dataIda">
-    <input type="text" placeholder="DATA DO RETORNO" id="dataRetorno">
+    <input type="text" placeholder="DATA DE IDA (DD/MM/AAAA)" id="dataIda">
+    <input type="text" placeholder="DATA DO RETORNO (DD/MM/AAAA)" id="dataRetorno">
     <input type="text" placeholder="SOLICITANTE" id="solicitante">
     <input type="text" placeholder="DESTINO" id="destino">
     <input type="text" placeholder="MOTORISTA" id="motorista">
@@ -101,11 +100,39 @@ const viagensData = [
 
 let table;
 
+// Helper function to convert YYYY-MM-DD to DD/MM/YYYY
+function formatDateToBR(dateString) {
+  if (!dateString) return "";
+  const [year, month, day] = dateString.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+// Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+function formatDateToISO(dateString) {
+  if (!dateString) return "";
+  const [day, month, year] = dateString.split('/');
+  return `${year}-${month}-${day}`;
+}
+
 $(document).ready(function () {
-  const columns = Object.keys(viagensData[0]).map(col => ({
-    title: col,
-    data: col
-  }));
+  const columns = Object.keys(viagensData[0]).map(col => {
+    if (col.startsWith("DATA")) {
+      return {
+        title: col,
+        data: col,
+        render: function(data, type, row) {
+          if (type === 'display' || type === 'filter') {
+            return formatDateToBR(data);
+          }
+          return data;
+        }
+      };
+    }
+    return {
+      title: col,
+      data: col
+    };
+  });
 
   table = $('#viagens').DataTable({
     data: viagensData,
@@ -115,19 +142,36 @@ $(document).ready(function () {
     createdRow: function(row, data) {
       if (data["STATUS DA VIAGEM"]) {
         const statusClass = "status-" + data["STATUS DA VIAGEM"].replaceAll(" ", "\\ ");
-        $('td', row).eq(6).addClass(statusClass);
+        $('td', row).eq(7).addClass(statusClass); // Adjusted index for STATUS DA VIAGEM
       }
     }
   });
 
   $('#viagens tbody').on('click', 'td', function () {
     const cell = table.cell(this);
-    const original = cell.data();
+    const columnIndex = cell.index().column;
+    const columnTitle = table.column(columnIndex).header().textContent;
+
+    let original = cell.data();
+
+    // Convert date from ISO to BR format for editing if it's a date column
+    if (columnTitle.startsWith("DATA")) {
+      original = formatDateToBR(original);
+    }
+
     $(this).attr('contenteditable', true).focus();
+    $(this).text(original); // Display the BR formatted date for editing
 
     $(this).on('blur', function () {
-      const newVal = $(this).text();
-      if (newVal !== original) {
+      let newVal = $(this).text();
+
+      // Convert date from BR to ISO format for saving if it's a date column
+      if (columnTitle.startsWith("DATA")) {
+        newVal = formatDateToISO(newVal);
+      }
+
+      // Check if the new value is different from the original (ISO format for comparison)
+      if (newVal !== cell.data()) {
         cell.data(newVal).draw();
         saveTable(table);
       }
@@ -144,9 +188,12 @@ $(document).ready(function () {
 });
 
 function adicionarViagem() {
+  const dataIdaBr = document.getElementById('dataIda').value;
+  const dataRetornoBr = document.getElementById('dataRetorno').value;
+
   const nova = {
-    "DATA DE IDA": document.getElementById('dataIda').value,
-    "DATA DO RETORNO": document.getElementById('dataRetorno').value,
+    "DATA DE IDA": formatDateToISO(dataIdaBr),
+    "DATA DO RETORNO": formatDateToISO(dataRetornoBr),
     "SOLICITANTE": document.getElementById('solicitante').value,
     "DESTINO": document.getElementById('destino').value,
     "MOTORISTA": document.getElementById('motorista').value,
