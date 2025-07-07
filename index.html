@@ -18,6 +18,24 @@
   <table id="viagens" class="display" style="width:100%">
     <thead></thead>
     <tbody></tbody>
+
+<button id="novaViagemBtn">+ Nova Viagem</button>
+<div id="formNovaViagem" style="display:none; margin-top: 10px;">
+  <input type="text" placeholder="DATA DE IDA" id="dataIda">
+  <input type="text" placeholder="DATA DO RETORNO" id="dataRetorno">
+  <input type="text" placeholder="SOLICITANTE" id="solicitante">
+  <input type="text" placeholder="DESTINO" id="destino">
+  <input type="text" placeholder="MOTORISTA" id="motorista">
+  <input type="text" placeholder="CARRO" id="carro">
+  <input type="text" placeholder="PLACA" id="placa">
+  <select id="status">
+    <option value="A INICIAR">A INICIAR</option>
+    <option value="ACONTECENDO">ACONTECENDO</option>
+    <option value="ENCERRADO">ENCERRADO</option>
+  </select>
+  <button onclick="adicionarViagem()">Adicionar</button>
+</div>
+
   </table>
 
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
@@ -78,6 +96,32 @@ const viagensData = [
     "STATUS DA VIAGEM": "ACONTECENDO"
   }
 ];
+
+document.getElementById('novaViagemBtn').onclick = () => {
+  const form = document.getElementById('formNovaViagem');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+};
+
+function adicionarViagem() {
+  const nova = {
+    "DATA DE IDA": document.getElementById('dataIda').value,
+    "DATA DO RETORNO": document.getElementById('dataRetorno').value,
+    "SOLICITANTE": document.getElementById('solicitante').value,
+    "DESTINO": document.getElementById('destino').value,
+    "MOTORISTA": document.getElementById('motorista').value,
+    "CARRO": document.getElementById('carro').value,
+    "PLACA": document.getElementById('placa').value,
+    "STATUS DA VIAGEM": document.getElementById('status').value
+  };
+
+  table.row.add(nova).draw();
+  saveTable(table);
+
+  // limpa campos
+  document.querySelectorAll('#formNovaViagem input').forEach(input => input.value = "");
+  document.getElementById('formNovaViagem').style.display = 'none';
+}
+
 
 $(document).ready(function () {
   const columns = Object.keys(viagensData[0]).map(col => ({
