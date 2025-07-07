@@ -1,89 +1,138 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Controle de Viagens - SEAD</title>
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        td[contenteditable="true"] { background-color: #ffffdd; }
-        .status-ACONTECENDO { background-color: #fff3cd; }
-        .status-A\\ INICIAR { background-color: #d1ecf1; }
-        .status-ENCERRADO { background-color: #d4edda; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Controle de Viagens - SEAD</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    td[contenteditable="true"] { background-color: #ffffdd; }
+    .status-ACONTECENDO { background-color: #fff3cd; }
+    .status-A\ INICIAR { background-color: #d1ecf1; }
+    .status-ENCERRADO { background-color: #d4edda; }
+  </style>
 </head>
 <body>
 
 <h2>Controle de Viagens - SEAD</h2>
 
 <table id="viagens" class="display" style="width:100%">
-    <thead></thead>
-    <tbody></tbody>
+  <thead></thead>
+  <tbody></tbody>
 </table>
-
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <script>
+// Dados da planilha embutidos no HTML
+const viagensData = [
+  {{
+    "DATA DE IDA": "2025-07-03",
+    "DATA DO RETORNO": "2025-07-18",
+    "SOLICITANTE": "kayo/SPI",
+    "DESTINO": "Territorio vale do itaim",
+    "MOTORISTA": "Almir",
+    "CARRO": "S-10",
+    "PLACA": "QRW4J55",
+    "STATUS DA VIAGEM": "ACONTECENDO",
+    "Unnamed: 8": "0"
+  }},
+  {{
+    "DATA DE IDA": "2025-07-08",
+    "DATA DO RETORNO": "2025-07-11",
+    "SOLICITANTE": "Victoria/SPI",
+    "DESTINO": "Parnaiba-PI",
+    "MOTORISTA": "Antonio",
+    "CARRO": "S-10",
+    "PLACA": "",
+    "STATUS DA VIAGEM": "A INICIAR",
+    "Unnamed: 8": "0"
+  }},
+  {{
+    "DATA DE IDA": "2025-07-10",
+    "DATA DO RETORNO": "2025-07-23",
+    "SOLICITANTE": "kayo/SPI",
+    "DESTINO": "Territorio chapada das mangabeiras",
+    "MOTORISTA": "Ricardo",
+    "CARRO": "S-10",
+    "PLACA": "",
+    "STATUS DA VIAGEM": "A INICIAR",
+    "Unnamed: 8": "0"
+  }},
+  {{
+    "DATA DE IDA": "2025-06-30",
+    "DATA DO RETORNO": "2025-07-04",
+    "SOLICITANTE": "Thays/CIASP",
+    "DESTINO": "Parnaiba-PI, Picos e Floriano",
+    "MOTORISTA": "Ricardo",
+    "CARRO": "A-10",
+    "PLACA": "QRW8I99",
+    "STATUS DA VIAGEM": "ENCERRADO",
+    "Unnamed: 8": "0"
+  }},
+  {{
+    "DATA DE IDA": "2025-07-07",
+    "DATA DO RETORNO": "2025-07-14",
+    "SOLICITANTE": "kayo/SPI",
+    "DESTINO": "Padre Marcos e Paulistana - PI",
+    "MOTORISTA": "Emerson",
+    "CARRO": "S-10",
+    "PLACA": "",
+    "STATUS DA VIAGEM": "ACONTECENDO",
+    "Unnamed: 8": "0"
+  }}
+];
 $(document).ready(function () {
-    Papa.parse("viagens.csv", {
-        download: true,
-        header: true,
-        complete: function(results) {
-            const data = results.data;
-            const columns = Object.keys(data[0]).map(col => ({
-                title: col,
-                data: col
-            }));
+  const columns = Object.keys(viagensData[0]).map(col => ({
+    title: col,
+    data: col
+  }));
 
-            const table = $('#viagens').DataTable({
-                data: data,
-                columns: columns,
-                dom: 'Bfrtip',
-                buttons: ['csv', 'excel'],
-                createdRow: function(row, data) {
-                    if (data["STATUS DA VIAGEM"]) {
-                        const statusClass = "status-" + data["STATUS DA VIAGEM"].replaceAll(" ", "\\ ");
-                        $('td', row).eq(6).addClass(statusClass);
-                    }
-                }
-            });
+  const table = $('#viagens').DataTable({
+    data: viagensData,
+    columns: columns,
+    dom: 'Bfrtip',
+    buttons: ['csv', 'excel'],
+    createdRow: function(row, data) {
+      if (data["STATUS DA VIAGEM"]) {
+        const statusClass = "status-" + data["STATUS DA VIAGEM"].replaceAll(" ", "\\ ");
+        $('td', row).eq(6).addClass(statusClass);
+      }
+    }
+  });
 
-            $('#viagens tbody').on('click', 'td', function () {
-                const cell = table.cell(this);
-                const original = cell.data();
-                $(this).attr('contenteditable', true).focus();
+  $('#viagens tbody').on('click', 'td', function () {
+    const cell = table.cell(this);
+    const original = cell.data();
+    $(this).attr('contenteditable', true).focus();
 
-                $(this).on('blur', function () {
-                    const newVal = $(this).text();
-                    if (newVal !== original) {
-                        cell.data(newVal).draw();
-                        saveTable(table);
-                    }
-                    $(this).removeAttr('contenteditable');
-                });
-            });
-
-            loadTable(table);
-        }
+    $(this).on('blur', function () {
+      const newVal = $(this).text();
+      if (newVal !== original) {
+        cell.data(newVal).draw();
+        saveTable(table);
+      }
+      $(this).removeAttr('contenteditable');
     });
+  });
 
-    function saveTable(table) {
-        const data = table.rows().data().toArray();
-        localStorage.setItem("viagensData", JSON.stringify(data));
-    }
+  function saveTable(table) {
+    const data = table.rows().data().toArray();
+    localStorage.setItem("viagensData", JSON.stringify(data));
+  }
 
-    function loadTable(table) {
-        const savedData = localStorage.getItem("viagensData");
-        if (savedData) {
-            const data = JSON.parse(savedData);
-            table.clear().rows.add(data).draw();
-        }
+  function loadTable(table) {
+    const savedData = localStorage.getItem("viagensData");
+    if (savedData) {
+      const data = JSON.parse(savedData);
+      table.clear().rows.add(data).draw();
     }
+  }
+
+  loadTable(table);
 });
 </script>
 
