@@ -14,22 +14,20 @@
   </style>
 </head>
 <body>
+  <h2>Controle de Viagens - SEAD</h2>
+  <table id="viagens" class="display" style="width:100%">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
 
-<h2>Controle de Viagens - SEAD</h2>
-
-<table id="viagens" class="display" style="width:100%">
-  <thead></thead>
-  <tbody></tbody>
-</table>
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
 <script>
-// Dados da planilha embutidos no HTML
 const viagensData = [
-  {{
+  {
     "DATA DE IDA": "2025-07-03",
     "DATA DO RETORNO": "2025-07-18",
     "SOLICITANTE": "kayo/SPI",
@@ -37,10 +35,9 @@ const viagensData = [
     "MOTORISTA": "Almir",
     "CARRO": "S-10",
     "PLACA": "QRW4J55",
-    "STATUS DA VIAGEM": "ACONTECENDO",
-    "Unnamed: 8": "0"
-  }},
-  {{
+    "STATUS DA VIAGEM": "ACONTECENDO"
+  },
+  {
     "DATA DE IDA": "2025-07-08",
     "DATA DO RETORNO": "2025-07-11",
     "SOLICITANTE": "Victoria/SPI",
@@ -48,10 +45,9 @@ const viagensData = [
     "MOTORISTA": "Antonio",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "A INICIAR",
-    "Unnamed: 8": "0"
-  }},
-  {{
+    "STATUS DA VIAGEM": "A INICIAR"
+  },
+  {
     "DATA DE IDA": "2025-07-10",
     "DATA DO RETORNO": "2025-07-23",
     "SOLICITANTE": "kayo/SPI",
@@ -59,10 +55,9 @@ const viagensData = [
     "MOTORISTA": "Ricardo",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "A INICIAR",
-    "Unnamed: 8": "0"
-  }},
-  {{
+    "STATUS DA VIAGEM": "A INICIAR"
+  },
+  {
     "DATA DE IDA": "2025-06-30",
     "DATA DO RETORNO": "2025-07-04",
     "SOLICITANTE": "Thays/CIASP",
@@ -70,10 +65,9 @@ const viagensData = [
     "MOTORISTA": "Ricardo",
     "CARRO": "A-10",
     "PLACA": "QRW8I99",
-    "STATUS DA VIAGEM": "ENCERRADO",
-    "Unnamed: 8": "0"
-  }},
-  {{
+    "STATUS DA VIAGEM": "ENCERRADO"
+  },
+  {
     "DATA DE IDA": "2025-07-07",
     "DATA DO RETORNO": "2025-07-14",
     "SOLICITANTE": "kayo/SPI",
@@ -81,10 +75,10 @@ const viagensData = [
     "MOTORISTA": "Emerson",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "ACONTECENDO",
-    "Unnamed: 8": "0"
-  }}
+    "STATUS DA VIAGEM": "ACONTECENDO"
+  }
 ];
+
 $(document).ready(function () {
   const columns = Object.keys(viagensData[0]).map(col => ({
     title: col,
@@ -135,6 +129,5 @@ $(document).ready(function () {
   loadTable(table);
 });
 </script>
-
 </body>
 </html>
