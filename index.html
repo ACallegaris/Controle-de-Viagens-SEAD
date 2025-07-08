@@ -26,11 +26,7 @@
     <input type="text" placeholder="MOTORISTA" id="motorista">
     <input type="text" placeholder="CARRO" id="carro">
     <input type="text" placeholder="PLACA" id="placa">
-    <select id="status">
-      <option value="A INICIAR">A INICIAR</option>
-      <option value="ACONTECENDO">ACONTECENDO</option>
-      <option value="ENCERRADO">ENCERRADO</option>
-    </select>
+    <!-- O campo de seleção de status foi removido, pois o status será calculado automaticamente -->
     <button onclick="adicionarViagem()">Adicionar</button>
   </div>
 
@@ -45,6 +41,7 @@
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
   <script>
+// Mock data for initial table population
 const viagensData = [
   {
     "DATA DE IDA": "2025-07-03",
@@ -98,24 +95,49 @@ const viagensData = [
   }
 ];
 
-let table;
+let table; // Global variable to hold the DataTable instance
 
-// Helper function to convert YYYY-MM-DD to DD/MM/YYYY
+// Helper function to convert ISO-MM-DD to DD/MM/YYYY
 function formatDateToBR(dateString) {
   if (!dateString) return "";
   const [year, month, day] = dateString.split('-');
   return `${day}/${month}/${year}`;
 }
 
-// Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+// Helper function to convert DD/MM/YYYY to ISO-MM-DD
 function formatDateToISO(dateString) {
   if (!dateString) return "";
-  const [day, month, year] = dateString.split('/');
-  return `${year}-${month}-${day}`;
+  const parts = dateString.split('/');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    return `${year}-${month}-${day}`;
+  }
+  return dateString; // Return as is if not in DD/MM/YYYY format
+}
+
+// Function to determine trip status based on dates
+function getTripStatus(dataIdaISO, dataRetornoISO) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+  const idaDate = new Date(dataIdaISO);
+  idaDate.setHours(0, 0, 0, 0);
+
+  const retornoDate = new Date(dataRetornoISO);
+  retornoDate.setHours(0, 0, 0, 0);
+
+  if (today < idaDate) {
+    return "A INICIAR";
+  } else if (today >= idaDate && today <= retornoDate) {
+    return "ACONTECENDO";
+  } else {
+    return "ENCERRADO";
+  }
 }
 
 $(document).ready(function () {
-  const columns = Object.keys(viagensData[0]).map(col => {
+  // Define base columns from data keys
+  const baseColumns = Object.keys(viagensData[0]).map(col => {
     if (col.startsWith("DATA")) {
       return {
         title: col,
@@ -134,23 +156,79 @@ $(document).ready(function () {
     };
   });
 
+  // Add the "Ações" column for the delete button
+  const columnsWithActions = [...baseColumns, {
+    title: "Ações",
+    data: null, // No direct data source
+    orderable: false,
+    searchable: false,
+    render: function(data, type, row) {
+      // Button for deleting a row
+      return `<button class="delete-btn px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200 text-xs">Excluir</button>`;
+    }
+  }];
+
   table = $('#viagens').DataTable({
     data: viagensData,
-    columns: columns,
+    columns: columnsWithActions, // Use columns with the "Ações" column
     dom: 'Bfrtip',
-    buttons: ['csv', 'excel'],
+    buttons: [
+      {
+        extend: 'csvHtml5',
+        text: 'Exportar CSV',
+        filename: 'relatorio_viagens',
+        exportOptions: {
+          columns: ':not(:last-child)', // Exclude the last column (Ações) from export
+          format: {
+            body: function (data, row, column, node) {
+              // Convert dates back to ISO-MM-DD for CSV export if they are date columns
+              const columnTitle = table.column(column).header().textContent;
+              if (columnTitle.startsWith("DATA")) {
+                return formatDateToISO(data); // Ensure ISO format for CSV
+              }
+              return data;
+            }
+          }
+        }
+      },
+      {
+        extend: 'excelHtml5',
+        text: 'Exportar Excel',
+        filename: 'relatorio_viagens',
+        exportOptions: {
+          columns: ':not(:last-child)', // Exclude the last column (Ações) from export
+          format: {
+            body: function (data, row, column, node) {
+              // Convert dates back to ISO-MM-DD for Excel export if they are date columns
+              const columnTitle = table.column(column).header().textContent;
+              if (columnTitle.startsWith("DATA")) {
+                return formatDateToISO(data); // Ensure ISO format for Excel
+              }
+              return data;
+            }
+          }
+        }
+      }
+    ],
     createdRow: function(row, data) {
+      // Apply status class to the correct column (index 7 for STATUS DA VIAGEM)
       if (data["STATUS DA VIAGEM"]) {
         const statusClass = "status-" + data["STATUS DA VIAGEM"].replaceAll(" ", "\\ ");
-        $('td', row).eq(7).addClass(statusClass); // Adjusted index for STATUS DA VIAGEM
+        $('td', row).eq(7).addClass(statusClass);
       }
     }
   });
 
+  // Event listener for cell editing
   $('#viagens tbody').on('click', 'td', function () {
     const cell = table.cell(this);
     const columnIndex = cell.index().column;
     const columnTitle = table.column(columnIndex).header().textContent;
+
+    // Prevent editing the "Ações" column or "STATUS DA VIAGEM" column
+    if (columnTitle === "Ações" || columnTitle === "STATUS DA VIAGEM") {
+        return;
+    }
 
     let original = cell.data();
 
@@ -170,17 +248,47 @@ $(document).ready(function () {
         newVal = formatDateToISO(newVal);
       }
 
+      // Get the row data to re-evaluate status if dates are changed
+      const rowData = table.row($(this).parents('tr')).data();
+      let updatedRowData = { ...rowData }; // Create a copy
+
+      // Update the specific field that was edited
+      updatedRowData[columnTitle] = newVal;
+
+      // If a date column was edited, re-calculate the status
+      if (columnTitle.startsWith("DATA")) {
+          updatedRowData["STATUS DA VIAGEM"] = getTripStatus(
+              updatedRowData["DATA DE IDA"],
+              updatedRowData["DATA DO RETORNO"]
+          );
+      }
+
       // Check if the new value is different from the original (ISO format for comparison)
-      if (newVal !== cell.data()) {
-        cell.data(newVal).draw();
-        saveTable(table);
+      if (newVal !== cell.data() || columnTitle.startsWith("DATA")) { // Re-draw if date changed to update status
+        cell.data(newVal).draw(); // Update the edited cell
+        // Update the status cell explicitly if a date was changed
+        if (columnTitle.startsWith("DATA")) {
+            table.cell(cell.index().row, 7).data(updatedRowData["STATUS DA VIAGEM"]).draw();
+        }
+        saveTable(table); // Save changes to localStorage
       }
       $(this).removeAttr('contenteditable');
     });
   });
 
-  loadTable(table);
+  // Event listener for delete button click
+  $('#viagens tbody').on('click', '.delete-btn', function () {
+    const row = table.row($(this).parents('tr'));
+    const rowData = row.data(); // Get the data for the row being deleted
 
+    // Confirmation dialog before deleting
+    if (confirm(`Tem certeza que deseja excluir a viagem para ${rowData.DESTINO} de ${formatDateToBR(rowData["DATA DE IDA"])}?`)) {
+        row.remove().draw(); // Remove from DataTables
+        saveTable(table); // Save updated data to localStorage
+    }
+  });
+
+  loadTable(table); // Load and process initial data
   document.getElementById('novaViagemBtn').onclick = () => {
     const form = document.getElementById('formNovaViagem');
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
@@ -191,15 +299,20 @@ function adicionarViagem() {
   const dataIdaBr = document.getElementById('dataIda').value;
   const dataRetornoBr = document.getElementById('dataRetorno').value;
 
+  const dataIdaISO = formatDateToISO(dataIdaBr);
+  const dataRetornoISO = formatDateToISO(dataRetornoBr);
+
+  const statusCalculado = getTripStatus(dataIdaISO, dataRetornoISO);
+
   const nova = {
-    "DATA DE IDA": formatDateToISO(dataIdaBr),
-    "DATA DO RETORNO": formatDateToISO(dataRetornoBr),
+    "DATA DE IDA": dataIdaISO,
+    "DATA DO RETORNO": dataRetornoISO,
     "SOLICITANTE": document.getElementById('solicitante').value,
     "DESTINO": document.getElementById('destino').value,
     "MOTORISTA": document.getElementById('motorista').value,
     "CARRO": document.getElementById('carro').value,
     "PLACA": document.getElementById('placa').value,
-    "STATUS DA VIAGEM": document.getElementById('status').value
+    "STATUS DA VIAGEM": statusCalculado // Status é definido automaticamente
   };
 
   table.row.add(nova).draw();
@@ -217,7 +330,12 @@ function saveTable(table) {
 function loadTable(table) {
   const savedData = localStorage.getItem("viagensData");
   if (savedData) {
-    const data = JSON.parse(savedData);
+    let data = JSON.parse(savedData);
+    // Re-evaluate status for all loaded trips
+    data = data.map(trip => {
+      const status = getTripStatus(trip["DATA DE IDA"], trip["DATA DO RETORNO"]);
+      return { ...trip, "STATUS DA VIAGEM": status };
+    });
     table.clear().rows.add(data).draw();
   }
 }
