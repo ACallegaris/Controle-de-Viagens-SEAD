@@ -3,22 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <title>Controle de Viagens - SEAD</title>
+  <!-- Ícone da página (favicon) -->
+  <link rel="icon" href="https://placehold.co/32x32/000000/FFFFFF?text=V" type="image/png">
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     td[contenteditable="true"] { background-color: #ffffdd; }
-    .status-ACONTECENDO { background-color: #fff3cd; }
-    .status-A\ INICIAR { background-color: #d1ecf1; }
-    .status-ENCERRADO { background-color: #d4edda; }
+
+    /* Estilos para as linhas com base no status */
+    .status-ACONTECENDO { background-color: #d4edda; } /* Verde claro */
+    .status-A\ INICIAR { background-color: #d1ecf1; } /* Azul claro */
+    .status-ENCERRADO { background-color: #f8d7da; } /* Vermelho claro */
+    .status-CANCELADA { background-color: #000000 !important; color: #ffffff !important; } /* Preto com fonte branca */
+
     #formNovaViagem input, #formNovaViagem select { margin: 4px; }
+
+    /* Estilo para alinhar os botões do DataTables */
+    .dt-buttons {
+      float: left; /* Alinha os botões à esquerda */
+      margin-right: 10px; /* Espaçamento entre os botões e o filtro */
+    }
   </style>
 </head>
 <body>
   <h2>Controle de Viagens - SEAD</h2>
 
-  <button id="novaViagemBtn">+ Nova Viagem</button>
-  <div id="formNovaViagem" style="display:none; margin-top: 10px;">
+  <!-- O botão "Nova Viagem" agora é gerenciado pelo DataTables -->
+  <div id="formNovaViagem" style="display:none; margin-top: 10px; margin-bottom: 20px;">
+    <h3>Adicionar Nova Viagem</h3>
     <input type="text" placeholder="DATA DE IDA (DD/MM/AAAA)" id="dataIda">
     <input type="text" placeholder="DATA DO RETORNO (DD/MM/AAAA)" id="dataRetorno">
     <input type="text" placeholder="SOLICITANTE" id="solicitante">
@@ -51,7 +64,8 @@ const viagensData = [
     "MOTORISTA": "Almir",
     "CARRO": "S-10",
     "PLACA": "QRW4J55",
-    "STATUS DA VIAGEM": "ACONTECENDO"
+    "STATUS DA VIAGEM": "ACONTECENDO",
+    "CANCELADA": false
   },
   {
     "DATA DE IDA": "2025-07-08",
@@ -61,7 +75,8 @@ const viagensData = [
     "MOTORISTA": "Antonio",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "A INICIAR"
+    "STATUS DA VIAGEM": "A INICIAR",
+    "CANCELADA": false
   },
   {
     "DATA DE IDA": "2025-07-10",
@@ -71,7 +86,8 @@ const viagensData = [
     "MOTORISTA": "Ricardo",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "A INICIAR"
+    "STATUS DA VIAGEM": "A INICIAR",
+    "CANCELADA": false
   },
   {
     "DATA DE IDA": "2025-06-30",
@@ -81,7 +97,8 @@ const viagensData = [
     "MOTORISTA": "Ricardo",
     "CARRO": "A-10",
     "PLACA": "QRW8I99",
-    "STATUS DA VIAGEM": "ENCERRADO"
+    "STATUS DA VIAGEM": "ENCERRADO",
+    "CANCELADA": false
   },
   {
     "DATA DE IDA": "2025-07-07",
@@ -91,7 +108,8 @@ const viagensData = [
     "MOTORISTA": "Emerson",
     "CARRO": "S-10",
     "PLACA": "",
-    "STATUS DA VIAGEM": "ACONTECENDO"
+    "STATUS DA VIAGEM": "ACONTECENDO",
+    "CANCELADA": false
   }
 ];
 
@@ -126,12 +144,18 @@ function getTripStatus(dataIdaISO, dataRetornoISO) {
   const retornoDate = new Date(dataRetornoISO);
   retornoDate.setHours(0, 0, 0, 0);
 
-  if (today < idaDate) {
+  // 1 - a iniciar - data de ida inferior ao dia atual;
+  if (idaDate > today) {
     return "A INICIAR";
-  } else if (today >= idaDate && today <= retornoDate) {
-    return "ACONTECENDO";
-  } else {
+  }
+  // 3 - encerrado - data do retorno inferior a data atual;
+  else if (retornoDate < today) {
     return "ENCERRADO";
+  }
+  // 2 - acontecendo - data de ida igual ou maior da data atual e a data do retorno maior que a data atual;
+  // Se não for "A INICIAR" e nem "ENCERRADO", então está "ACONTECENDO"
+  else {
+    return "ACONTECENDO";
   }
 }
 
@@ -149,6 +173,17 @@ $(document).ready(function () {
           return data;
         }
       };
+    } else if (col === "CANCELADA") {
+        return {
+            title: "CANCELADA",
+            data: "CANCELADA",
+            orderable: false,
+            searchable: false,
+            render: function(data, type, row) {
+                // Render a checkbox for the CANCELADA status
+                return `<input type="checkbox" class="cancelada-checkbox" ${data ? 'checked' : ''}>`;
+            }
+        };
     }
     return {
       title: col,
@@ -171,8 +206,16 @@ $(document).ready(function () {
   table = $('#viagens').DataTable({
     data: viagensData,
     columns: columnsWithActions, // Use columns with the "Ações" column
-    dom: 'Bfrtip',
+    dom: 'Bfrtip', // 'B' for buttons, 'f' for filter (search), 'r' for processing, 't' for table, 'i' for info, 'p' for pagination
     buttons: [
+      {
+        text: '+ Nova Viagem',
+        action: function ( e, dt, node, config ) {
+          // Toggle form visibility
+          const form = document.getElementById('formNovaViagem');
+          form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+      },
       {
         extend: 'csvHtml5',
         text: 'Exportar CSV',
@@ -181,10 +224,9 @@ $(document).ready(function () {
           columns: ':not(:last-child)', // Exclude the last column (Ações) from export
           format: {
             body: function (data, row, column, node) {
-              // Convert dates back to ISO-MM-DD for CSV export if they are date columns
               const columnTitle = table.column(column).header().textContent;
               if (columnTitle.startsWith("DATA")) {
-                return formatDateToISO(data); // Ensure ISO format for CSV
+                return formatDateToISO(data);
               }
               return data;
             }
@@ -199,10 +241,9 @@ $(document).ready(function () {
           columns: ':not(:last-child)', // Exclude the last column (Ações) from export
           format: {
             body: function (data, row, column, node) {
-              // Convert dates back to ISO-MM-DD for Excel export if they are date columns
               const columnTitle = table.column(column).header().textContent;
               if (columnTitle.startsWith("DATA")) {
-                return formatDateToISO(data); // Ensure ISO format for Excel
+                return formatDateToISO(data);
               }
               return data;
             }
@@ -210,11 +251,31 @@ $(document).ready(function () {
         }
       }
     ],
+    language: {
+      search: "Pesquisar:", // Traduz "Search" para "Pesquisar"
+      lengthMenu: "Mostrar _MENU_ entradas",
+      info: "Mostrando _START_ a _END_ de _TOTAL_ entradas",
+      infoEmpty: "Mostrando 0 a 0 de 0 entradas",
+      infoFiltered: "(filtrado de _MAX_ entradas totais)",
+      paginate: {
+        first: "Primeiro",
+        last: "Último",
+        next: "Próximo",
+        previous: "Anterior"
+      }
+    },
     createdRow: function(row, data) {
-      // Apply status class to the correct column (index 7 for STATUS DA VIAGEM)
+      // Remove any existing status classes before applying new ones
+      $(row).removeClass('status-ACONTECENDO status-A\\ INICIAR status-ENCERRADO status-CANCELADA');
+
+      // Apply status class to the entire row based on STATUS DA VIAGEM
       if (data["STATUS DA VIAGEM"]) {
         const statusClass = "status-" + data["STATUS DA VIAGEM"].replaceAll(" ", "\\ ");
-        $('td', row).eq(7).addClass(statusClass);
+        $(row).addClass(statusClass); // Apply to the whole row
+      }
+      // Apply cancelled class if CANCELADA is true, overriding other background colors
+      if (data.CANCELADA) {
+        $(row).addClass("status-CANCELADA");
       }
     }
   });
@@ -225,8 +286,8 @@ $(document).ready(function () {
     const columnIndex = cell.index().column;
     const columnTitle = table.column(columnIndex).header().textContent;
 
-    // Prevent editing the "Ações" column or "STATUS DA VIAGEM" column
-    if (columnTitle === "Ações" || columnTitle === "STATUS DA VIAGEM") {
+    // Prevent editing the "Ações" column, "STATUS DA VIAGEM" or "CANCELADA" column
+    if (columnTitle === "Ações" || columnTitle === "STATUS DA VIAGEM" || columnTitle === "CANCELADA") {
         return;
     }
 
@@ -243,11 +304,6 @@ $(document).ready(function () {
     $(this).on('blur', function () {
       let newVal = $(this).text();
 
-      // Convert date from BR to ISO format for saving if it's a date column
-      if (columnTitle.startsWith("DATA")) {
-        newVal = formatDateToISO(newVal);
-      }
-
       // Get the row data to re-evaluate status if dates are changed
       const rowData = table.row($(this).parents('tr')).data();
       let updatedRowData = { ...rowData }; // Create a copy
@@ -257,6 +313,9 @@ $(document).ready(function () {
 
       // If a date column was edited, re-calculate the status
       if (columnTitle.startsWith("DATA")) {
+          // Convert date from BR to ISO format for saving if it's a date column
+          updatedRowData[columnTitle] = formatDateToISO(newVal);
+
           updatedRowData["STATUS DA VIAGEM"] = getTripStatus(
               updatedRowData["DATA DE IDA"],
               updatedRowData["DATA DO RETORNO"]
@@ -264,12 +323,10 @@ $(document).ready(function () {
       }
 
       // Check if the new value is different from the original (ISO format for comparison)
-      if (newVal !== cell.data() || columnTitle.startsWith("DATA")) { // Re-draw if date changed to update status
-        cell.data(newVal).draw(); // Update the edited cell
-        // Update the status cell explicitly if a date was changed
-        if (columnTitle.startsWith("DATA")) {
-            table.cell(cell.index().row, 7).data(updatedRowData["STATUS DA VIAGEM"]).draw();
-        }
+      // or if a date column was edited (to trigger status update)
+      if (newVal !== cell.data() || columnTitle.startsWith("DATA")) {
+        // Update the row data directly in DataTables
+        table.row($(this).parents('tr')).data(updatedRowData).draw();
         saveTable(table); // Save changes to localStorage
       }
       $(this).removeAttr('contenteditable');
@@ -288,11 +345,26 @@ $(document).ready(function () {
     }
   });
 
+  // Event listener for cancelada checkbox change
+  $('#viagens tbody').on('change', '.cancelada-checkbox', function () {
+    const row = table.row($(this).parents('tr'));
+    let rowData = row.data();
+    const isChecked = $(this).prop('checked');
+
+    rowData.CANCELADA = isChecked; // Update the data object
+    row.data(rowData).draw(); // Update the row in DataTable and re-draw to apply styling
+
+    saveTable(table); // Save changes to localStorage
+  });
+
+
   loadTable(table); // Load and process initial data
-  document.getElementById('novaViagemBtn').onclick = () => {
-    const form = document.getElementById('formNovaViagem');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-  };
+
+  // The 'Nova Viagem' button click is now handled by DataTables 'buttons' option
+  // document.getElementById('novaViagemBtn').onclick = () => {
+  //   const form = document.getElementById('formNovaViagem');
+  //   form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  // };
 });
 
 function adicionarViagem() {
@@ -312,7 +384,8 @@ function adicionarViagem() {
     "MOTORISTA": document.getElementById('motorista').value,
     "CARRO": document.getElementById('carro').value,
     "PLACA": document.getElementById('placa').value,
-    "STATUS DA VIAGEM": statusCalculado // Status é definido automaticamente
+    "STATUS DA VIAGEM": statusCalculado, // Status é definido automaticamente
+    "CANCELADA": false // Nova viagem começa como não cancelada
   };
 
   table.row.add(nova).draw();
@@ -331,10 +404,10 @@ function loadTable(table) {
   const savedData = localStorage.getItem("viagensData");
   if (savedData) {
     let data = JSON.parse(savedData);
-    // Re-evaluate status for all loaded trips
+    // Re-evaluate status for all loaded trips and ensure CANCELADA property exists
     data = data.map(trip => {
       const status = getTripStatus(trip["DATA DE IDA"], trip["DATA DO RETORNO"]);
-      return { ...trip, "STATUS DA VIAGEM": status };
+      return { ...trip, "STATUS DA VIAGEM": status, "CANCELADA": trip.CANCELADA || false };
     });
     table.clear().rows.add(data).draw();
   }
