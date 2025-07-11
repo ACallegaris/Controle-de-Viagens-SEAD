@@ -24,6 +24,52 @@
       float: left; /* Alinha os botões à esquerda */
       margin-right: 10px; /* Espaçamento entre os botões e o filtro */
     }
+
+    /* Estilos para o Modal Customizado */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .modal-content h4 {
+      margin-top: 0;
+      color: #333;
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+
+    .modal-content button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+    }
+
+    .modal-content button:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -39,7 +85,6 @@
     <input type="text" placeholder="MOTORISTA" id="motorista">
     <input type="text" placeholder="CARRO" id="carro">
     <input type="text" placeholder="PLACA" id="placa">
-    <!-- O campo de seleção de status foi removido, pois o status será calculado automaticamente -->
     <button onclick="adicionarViagem()">Adicionar</button>
   </div>
 
@@ -47,6 +92,14 @@
     <thead></thead>
     <tbody></tbody>
   </table>
+
+  <!-- Modal Customizado para Mensagens -->
+  <div id="customModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h4 id="modalMessage"></h4>
+      <button onclick="hideModal()">OK</button>
+    </div>
+  </div>
 
   <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
@@ -144,20 +197,56 @@ function getTripStatus(dataIdaISO, dataRetornoISO) {
   const retornoDate = new Date(dataRetornoISO);
   retornoDate.setHours(0, 0, 0, 0);
 
-  // 1 - a iniciar - data de ida inferior ao dia atual;
-  if (idaDate > today) {
-    return "A INICIAR";
-  }
-  // 3 - encerrado - data do retorno inferior a data atual;
-  else if (retornoDate < today) {
+  // 3 - encerrado - data do retorno inferior ou igual a data atual;
+  if (retornoDate <= today) {
     return "ENCERRADO";
   }
+  // 1 - a iniciar - data de ida superior ao dia atual;
+  else if (idaDate > today) {
+    return "A INICIAR";
+  }
   // 2 - acontecendo - data de ida igual ou maior da data atual e a data do retorno maior que a data atual;
-  // Se não for "A INICIAR" e nem "ENCERRADO", então está "ACONTECENDO"
+  // Se não for "ENCERRADO" e nem "A INICIAR", então está "ACONTECENDO"
   else {
     return "ACONTECENDO";
   }
 }
+
+// Functions to show/hide the custom modal
+function showModal(message) {
+  document.getElementById('modalMessage').innerText = message;
+  document.getElementById('customModal').style.display = 'flex';
+}
+
+function hideModal() {
+  document.getElementById('customModal').style.display = 'none';
+}
+
+// Function to check for driver date conflicts
+function checkDriverConflict(newTrip, existingTrips) {
+  const newIdaDate = new Date(newTrip["DATA DE IDA"]);
+  const newRetornoDate = new Date(newTrip["DATA DO RETORNO"]);
+  const newMotorista = newTrip["MOTORISTA"];
+
+  for (const existingTrip of existingTrips) {
+    // Skip if it's the same trip being edited (if you had unique IDs)
+    // For now, we'll assume we're checking against all other trips
+    if (existingTrip.MOTORISTA === newMotorista) {
+      const existingIdaDate = new Date(existingTrip["DATA DE IDA"]);
+      const existingRetornoDate = new Date(existingTrip["DATA DO RETORNO"]);
+
+      // Check for overlap: (start1 <= end2) AND (end1 >= start2)
+      if (newIdaDate <= existingRetornoDate && newRetornoDate >= existingIdaDate) {
+        // Exclude if the existing trip is cancelled
+        if (!existingTrip.CANCELADA) {
+          return `Conflito de datas para o motorista ${newMotorista}! Ele já está agendado para a viagem para ${existingTrip.DESTINO} de ${formatDateToBR(existingTrip["DATA DE IDA"])} a ${formatDateToBR(existingTrip["DATA DO RETORNO"])}.`;
+        }
+      }
+    }
+  }
+  return null; // No conflict found
+}
+
 
 $(document).ready(function () {
   // Define base columns from data keys
@@ -322,6 +411,21 @@ $(document).ready(function () {
           );
       }
 
+      // If the Motorista column was edited, check for conflicts
+      if (columnTitle === "MOTORISTA") {
+          const allTrips = table.rows().data().toArray();
+          const currentTripIndex = table.row($(this).parents('tr')).index();
+          const otherTrips = allTrips.filter((_, index) => index !== currentTripIndex); // Exclude the current trip
+
+          const conflictMessage = checkDriverConflict(updatedRowData, otherTrips);
+          if (conflictMessage) {
+              showModal(conflictMessage);
+              // Revert the change if there's a conflict
+              cell.data(original).draw(); // Revert to original data
+              return; // Stop further processing
+          }
+      }
+
       // Check if the new value is different from the original (ISO format for comparison)
       // or if a date column was edited (to trigger status update)
       if (newVal !== cell.data() || columnTitle.startsWith("DATA")) {
@@ -370,23 +474,34 @@ $(document).ready(function () {
 function adicionarViagem() {
   const dataIdaBr = document.getElementById('dataIda').value;
   const dataRetornoBr = document.getElementById('dataRetorno').value;
+  const motorista = document.getElementById('motorista').value;
 
   const dataIdaISO = formatDateToISO(dataIdaBr);
   const dataRetornoISO = formatDateToISO(dataRetornoBr);
-
-  const statusCalculado = getTripStatus(dataIdaISO, dataRetornoISO);
 
   const nova = {
     "DATA DE IDA": dataIdaISO,
     "DATA DO RETORNO": dataRetornoISO,
     "SOLICITANTE": document.getElementById('solicitante').value,
     "DESTINO": document.getElementById('destino').value,
-    "MOTORISTA": document.getElementById('motorista').value,
+    "MOTORISTA": motorista,
     "CARRO": document.getElementById('carro').value,
     "PLACA": document.getElementById('placa').value,
-    "STATUS DA VIAGEM": statusCalculado, // Status é definido automaticamente
+    "STATUS DA VIAGEM": "", // Será calculado após a validação
     "CANCELADA": false // Nova viagem começa como não cancelada
   };
+
+  // Check for driver conflict before adding
+  const allTrips = table.rows().data().toArray();
+  const conflictMessage = checkDriverConflict(nova, allTrips);
+
+  if (conflictMessage) {
+    showModal(conflictMessage);
+    return; // Stop adding the trip if there's a conflict
+  }
+
+  // If no conflict, calculate status and add the trip
+  nova["STATUS DA VIAGEM"] = getTripStatus(nova["DATA DE IDA"], nova["DATA DO RETORNO"]);
 
   table.row.add(nova).draw();
   saveTable(table);
